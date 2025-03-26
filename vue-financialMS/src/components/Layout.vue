@@ -83,6 +83,7 @@ import {
   Money,
   Search,
 } from '@element-plus/icons-vue';
+import {ElMessage} from "element-plus";
 
 const router = useRouter();
 const route = useRoute();
@@ -100,6 +101,7 @@ const handleMenuSelect = (index) => {
 
 // 退出登录
 const logout = () => {
+  ElMessage.success("退出成功")
   router.push('/login');
 };
 </script>
