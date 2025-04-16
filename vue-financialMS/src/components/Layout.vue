@@ -41,6 +41,10 @@
             <el-icon><HomeFilled /></el-icon>
             <span>首页</span>
           </el-menu-item>
+          <el-menu-item index="/product">
+            <el-icon><Goods /></el-icon>
+            <span>产品</span>
+          </el-menu-item>
           <el-menu-item index="/purchase">
             <el-icon><ShoppingCart /></el-icon>
             <span>申购</span>
@@ -81,7 +85,7 @@ import {
   Sell,
   User,
   Money,
-  Search,
+  Search, ShoppingCartFull, Goods,
 } from '@element-plus/icons-vue';
 import {ElMessage} from "element-plus";
 

@@ -36,11 +36,6 @@
             <el-table :data="clientHoldings" border style="width: 100%">
               <el-table-column prop="fundCode" label="基金代码" width="120" />
               <el-table-column prop="fundName" label="基金名称" width="180" />
-              <el-table-column prop="shareType" label="份额类别" width="100">
-                <template #default="{ row }">
-                  {{ getShareTypeLabel(row.shareType) }}
-                </template>
-              </el-table-column>
               <el-table-column prop="shareTotal" label="持有份额" width="120" />
               <el-table-column prop="cardNumber" label="购买银行卡" width="180" />
             </el-table>
@@ -86,15 +81,6 @@
             <span style="margin-left: 10px;">份 (最多可赎回 {{ selectedHolding ? selectedHolding.shareTotal : 1000000 }} 份)</span>
           </el-form-item>
 
-          <el-form-item label="份额类别" prop="shareType">
-            <el-select v-model="redeemForm.shareType" placeholder="请选择份额类别" disabled>
-              <el-option
-                  :label="getShareTypeLabel(selectedHolding ? selectedHolding.shareType : 1)"
-                  :value="selectedHolding ? selectedHolding.shareType : 1"
-              />
-            </el-select>
-          </el-form-item>
-
           <el-form-item label="收款方式">
             <el-radio-group v-model="paymentMethod">
               <el-radio :label="1">原卡退回</el-radio>
@@ -125,9 +111,6 @@
             <el-descriptions-item label="赎回份额">
               {{ redeemForm.shares }} 份
             </el-descriptions-item>
-            <el-descriptions-item label="份额类别">
-              {{ getShareTypeLabel(redeemForm.shareType) }}
-            </el-descriptions-item>
             <el-descriptions-item label="收款方式">
               原卡退回 ({{ redeemForm.cardNumber }})
             </el-descriptions-item>
@@ -152,7 +135,7 @@
     <el-dialog v-model="redeemDialogVisible" title="赎回成功" width="50%">
       <el-descriptions :column="1" border>
         <el-descriptions-item label="赎回编号">{{ redeemResult.orderNumber }}</el-descriptions-item>
-        <el-descriptions-item label="基金名称">{{ selectedHolding.fundName }} ({{ selectedHolding.fundCode }})</el-descriptions-item>
+        <el-descriptions-item label="基金名称">{{ selectedHolding?.value.fundName||'--' }} ({{ selectedHolding?.value.fundCode||'--' }})</el-descriptions-item>
         <el-descriptions-item label="赎回份额">{{ redeemForm.shares }} 份</el-descriptions-item>
         <el-descriptions-item label="预计到账金额">{{ redeemResult.estimatedAmount }} 元</el-descriptions-item>
         <el-descriptions-item label="交易日期">{{ redeemResult.tradeDate }}</el-descriptions-item>
@@ -198,7 +181,6 @@ const mockHoldings = [
     fundId: 1,
     fundCode: '000001',
     fundName: '稳健增长债券A',
-    shareType: 1,
     shareTotal: 5000,
     cardNumber: '6222021001123456789'
   },
@@ -207,7 +189,6 @@ const mockHoldings = [
     fundId: 2,
     fundCode: '000002',
     fundName: '科技先锋股票',
-    shareType: 2,
     shareTotal: 3000,
     cardNumber: '6227001001234567890'
   },
@@ -216,7 +197,6 @@ const mockHoldings = [
     fundId: 1,
     fundCode: '000001',
     fundName: '稳健增长债券A',
-    shareType: 1,
     shareTotal: 10000,
     cardNumber: '4563510012345678901'
   }
@@ -237,14 +217,6 @@ const mockFunds = [
   }
 ]
 
-// 枚举值
-const shareTypes = [
-  { value: 1, label: 'A类' },
-  { value: 2, label: 'B类' },
-  { value: 3, label: 'C类' },
-  { value: 4, label: 'D类' },
-  { value: 5, label: 'E类' }
-]
 
 // 步骤控制
 const currentStep = ref(1)
@@ -261,7 +233,6 @@ const selectedHolding = ref(null)
 // 赎回表单
 const redeemForm = reactive({
   shares: null,
-  shareType: null,
   cardNumber: ''
 })
 
@@ -276,10 +247,6 @@ const redeemResult = reactive({
   estimatedArrivalDate: ''
 })
 
-// 辅助函数
-const getShareTypeLabel = (type) => {
-  return shareTypes.find(item => item.value === type)?.label || '未知'
-}
 
 // 客户搜索
 const searchClients = (query, cb) => {
@@ -319,7 +286,6 @@ const searchFunds = (query, cb) => {
 
 const handleFundSelect = (item) => {
   selectedHolding.value = item
-  redeemForm.shareType = item.shareType
   redeemForm.cardNumber = item.cardNumber
 }
 
@@ -359,7 +325,6 @@ const resetForm = () => {
   clientHoldings.value = []
   Object.assign(redeemForm, {
     shares: null,
-    shareType: null,
     cardNumber: ''
   })
 }
@@ -392,6 +357,7 @@ const submitRedeem = async () => {
 const finishRedeem = () => {
   redeemDialogVisible.value = false
   resetForm()
+  ElMessage.success("操作成功")
 }
 </script>
 

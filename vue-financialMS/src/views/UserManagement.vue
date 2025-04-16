@@ -80,8 +80,12 @@
         <el-table-column prop="createTime" label="创建时间" width="180" />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="viewDetail(row.id)">详情</el-button>
-            <el-button size="small" type="primary" @click="editUser(row.id)">编辑</el-button>
+            <el-button size="small" type="primary" @click="editUser(row)">修改</el-button>  <!-- 修改这里 -->
+            <el-popconfirm title="确认删除这条记录吗?" @confirm="delClient(row.id)">
+              <template #reference>
+                <el-button size="small" type="danger">删除</el-button>
+              </template>
+            </el-popconfirm>
           </template>
         </el-table-column>
       </el-table>
@@ -189,54 +193,53 @@
       </template>
     </el-dialog>
 
-    <!-- 用户详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" title="客户详情" width="60%">
+    <el-dialog v-model="detailDialogVisible" :title="currentUser ? '修改客户信息' : '客户详情'" width="60%">
       <el-tabs v-if="currentUser">
         <el-tab-pane label="基本信息">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="账号">{{ currentUser.accountNumber }}</el-descriptions-item>
-            <el-descriptions-item label="类型">
-              {{ currentUser.type === 1 ? '个人' : '企业' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="姓名" v-if="currentUser.type === 1">
-              {{ currentUser.name }}
-            </el-descriptions-item>
-            <el-descriptions-item label="联系人" v-if="currentUser.type === 2">
-              {{ currentUser.contactName }}
-            </el-descriptions-item>
-            <el-descriptions-item label="证件类型">
-              {{ certificateTypeLabel(currentUser.certificateType) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="证件号码">
-              {{ currentUser.certificateNumber }}
-            </el-descriptions-item>
-            <el-descriptions-item label="联系电话">
-              {{ currentUser.contactNumber }}
-            </el-descriptions-item>
-            <el-descriptions-item label="邮箱">
-              {{ currentUser.mail }}
-            </el-descriptions-item>
-            <el-descriptions-item label="地址">
-              {{ currentUser.address }}
-            </el-descriptions-item>
-            <el-descriptions-item label="风险承受">
-              <el-tag :type="riskTagType(currentUser.riskTolerance)">
-                {{ riskLabel(currentUser.riskTolerance) }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="投资目标">
-              {{ targetLabel(currentUser.target) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="状态">
-              <el-tag :type="currentUser.status === 1 ? 'success' : 'danger'">
-                {{ currentUser.status === 1 ? '正常' : '冻结' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="创建时间">
-              {{ currentUser.createTime }}
-            </el-descriptions-item>
-          </el-descriptions>
+          <el-form :model="basicForm" :rules="basicRules" ref="editFormRef">
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="账号">{{ currentUser.accountNumber }}</el-descriptions-item>
+              <el-descriptions-item label="类型">
+                <el-radio-group v-model="basicForm.type">
+                  <el-radio :label="1">个人</el-radio>
+                  <el-radio :label="2">企业</el-radio>
+                </el-radio-group>
+              </el-descriptions-item>
+              <el-descriptions-item label="帐号状态">
+                <el-radio-group v-model="basicForm.status">
+                  <el-radio :label="1">正常</el-radio>
+                  <el-radio :label="2">冻结</el-radio>
+                </el-radio-group>
+              </el-descriptions-item>
+              <el-descriptions-item label="姓名" v-if="basicForm.type === 1">
+                <el-input v-model="basicForm.name" />
+              </el-descriptions-item>
+              <el-descriptions-item label="联系人" v-if="basicForm.type === 2">
+                <el-input v-model="basicForm.contactName" />
+              </el-descriptions-item>
+              <el-descriptions-item label="证件类型">
+                <el-select v-model="basicForm.certificateType">
+                  <el-option label="身份证" :value="1" />
+                  <el-option label="护照" :value="2" />
+                  <el-option label="营业执照" :value="3" v-if="basicForm.type === 2" />
+                </el-select>
+              </el-descriptions-item>
+              <el-descriptions-item label="证件号码">
+                <el-input v-model="basicForm.certificateNumber" />
+              </el-descriptions-item>
+              <el-descriptions-item label="联系电话">
+                <el-input v-model="basicForm.contactNumber" />
+              </el-descriptions-item>
+              <el-descriptions-item label="邮箱">
+                <el-input v-model="basicForm.mail" />
+              </el-descriptions-item>
+              <el-descriptions-item label="地址">
+                <el-input v-model="basicForm.address" />
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-form>
         </el-tab-pane>
+        <!-- 银行卡管理tab保持不变 -->
         <el-tab-pane label="银行卡管理">
           <div style="margin-bottom: 20px;">
             <el-button type="primary" @click="showAddBankCard">新增银行卡</el-button>
@@ -244,12 +247,6 @@
           <el-table :data="bankCards" border style="width: 100%">
             <el-table-column prop="bankName" label="银行名称" width="150" />
             <el-table-column prop="cardNumber" label="卡号" width="200" />
-            <el-table-column prop="isDefault" label="默认卡" width="100">
-              <template #default="{ row }">
-                <el-tag v-if="row.isDefault" type="success">是</el-tag>
-                <el-button v-else size="small" @click="setDefaultCard(row.id)">设为默认</el-button>
-              </template>
-            </el-table-column>
             <el-table-column label="操作" width="120">
               <template #default="{ row }">
                 <el-button type="danger" size="small" @click="deleteCard(row.id)">删除</el-button>
@@ -259,7 +256,8 @@
         </el-tab-pane>
       </el-tabs>
       <template #footer>
-        <el-button @click="detailDialogVisible = false">关闭</el-button>
+        <el-button @click="detailDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitEdit">保存</el-button>  <!-- 添加保存按钮 -->
       </template>
     </el-dialog>
 
@@ -271,9 +269,6 @@
         </el-form-item>
         <el-form-item label="卡号" prop="cardNumber">
           <el-input v-model="bankCardForm.cardNumber" />
-        </el-form-item>
-        <el-form-item label="设为默认">
-          <el-switch v-model="bankCardForm.isDefault" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -287,6 +282,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import request from "@/utils/request.js";
 
 // 模拟数据
 const mockUsers = [
@@ -355,6 +351,7 @@ const createDialogVisible = ref(false)
 const currentStep = ref(1)
 const basicFormRef = ref(null)
 const surveyFormRef = ref(null)
+const editFormRef = ref(null)
 
 const basicForm = reactive({
   type: 1,
@@ -364,6 +361,7 @@ const basicForm = reactive({
   certificateNumber: '',
   contactNumber: '',
   mail: '',
+  status:'',
   address: ''
 })
 
@@ -393,7 +391,6 @@ const bankCardDialogVisible = ref(false)
 const bankCardForm = reactive({
   bankName: '',
   cardNumber: '',
-  isDefault: false
 })
 
 // 辅助函数
@@ -539,10 +536,62 @@ const viewDetail = async (id) => {
   }
 }
 
-const editUser = (id) => {
-  // 实际项目中这里应该跳转到编辑页面
-  ElMessage.info('编辑功能将在详情页面实现')
-  viewDetail(id)
+// 编辑用户
+const editUser = (row) => {
+  currentUser.value = { ...row }
+  // 加载银行卡信息
+  bankCards.value = mockBankCards.filter(item => item.userId === row.id)
+  // 填充表单
+  Object.assign(basicForm, {
+    type: row.type,
+    name: row.name,
+    contactName: row.contactName,
+    certificateType: row.certificateType,
+    certificateNumber: row.certificateNumber,
+    contactNumber: row.contactNumber,
+    mail: row.mail,
+    address: row.address
+  })
+  // 打开修改对话框
+  detailDialogVisible.value = true
+}
+
+// 保存修改
+const submitEdit = async () => {
+  try {
+    // 验证表单
+    await editFormRef.value.validate()
+
+    // 模拟API请求
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // 更新本地数据
+    const index = mockUsers.findIndex(user => user.id === currentUser.value.id)
+    if (index !== -1) {
+      mockUsers[index] = {
+        ...mockUsers[index],
+        ...basicForm
+      }
+    }
+
+    ElMessage.success('修改成功')
+    detailDialogVisible.value = false
+    fetchUsers() // 刷新列表
+  } catch (error) {
+    console.error('修改失败', error)
+  }
+}
+
+// 删除用户
+const delClient = (id) => {
+  request.delete("product/"+id).then((res) => {
+    if (res.code === '200') {
+      ElMessage.success("删除成功")
+    }else {
+      ElMessage.error(res.msg)
+    }
+    handleSearch()
+  })
 }
 
 // 银行卡管理
@@ -562,18 +611,6 @@ const submitBankCard = async () => {
     viewDetail(currentUser.value.id) // 刷新银行卡列表
   } catch (error) {
     ElMessage.error('添加银行卡失败')
-    console.error(error)
-  }
-}
-
-const setDefaultCard = async (cardId) => {
-  try {
-    // 模拟设置默认卡API
-    await new Promise(resolve => setTimeout(resolve, 500))
-    ElMessage.success('默认卡设置成功')
-    viewDetail(currentUser.value.id) // 刷新银行卡列表
-  } catch (error) {
-    ElMessage.error('设置默认卡失败')
     console.error(error)
   }
 }

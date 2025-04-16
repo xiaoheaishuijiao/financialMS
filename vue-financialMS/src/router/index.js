@@ -7,6 +7,7 @@ import UserManagement from '@/views/UserManagement.vue';
 import Clearing from '@/views/Clearing.vue';
 import BusinessQuery from '@/views/BusinessQuery.vue';
 import Login from '@/views/Login.vue';
+import Product from "@/views/Product.vue";
 
 const routes = [
   {
@@ -14,6 +15,7 @@ const routes = [
     component: Layout,
     children: [
       { path: '/', component: Home, meta: { title: '首页' } },
+      { path: '/product', component: Product , meta: { title: '产品' } },
       { path: '/purchase', component: Purchase, meta: { title: '申购' } },
       { path: '/redeem', component: Redeem, meta: { title: '赎回' } },
       { path: '/user-management', component: UserManagement, meta: { title: '用户管理' } },

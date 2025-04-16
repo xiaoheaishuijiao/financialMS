@@ -62,15 +62,14 @@
                 @select="handleFundSelect"
             >
               <template #default="{ item }">
-                <div>{{ item.code }} - {{ item.name }} ({{ getProductTypeLabel(item.type) }})</div>
+                <div>{{ item.code }} - {{ item.name }}</div>
               </template>
             </el-autocomplete>
           </el-form-item>
 
           <el-form-item v-if="selectedFund" label="基金信息">
             <el-descriptions :column="2" border>
-              <el-descriptions-item label="基金名称">{{ selectedFund.name }}</el-descriptions-item>
-              <el-descriptions-item label="基金类型">{{ getProductTypeLabel(selectedFund.type) }}</el-descriptions-item>
+              <el-descriptions-item span="2" label="基金名称">{{ selectedFund.name }}</el-descriptions-item>
               <el-descriptions-item label="最新净值">{{ selectedFund.latestWorth }}</el-descriptions-item>
               <el-descriptions-item label="风险等级">
                 <el-tag :type="riskTagType(selectedFund.riskLevel)">
@@ -80,26 +79,16 @@
             </el-descriptions>
           </el-form-item>
 
-          <el-form-item label="购买份额" prop="amount">
+          <el-form-item label="购买金额" prop="amount">
             <el-input-number
                 v-model="orderForm.amount"
                 :min="1000"
                 :step="1000"
                 :precision="2"
+                style="width: 200px"
                 placeholder="请输入购买金额"
             />
             <span style="margin-left: 10px;">元</span>
-          </el-form-item>
-
-          <el-form-item label="份额类别" prop="shareType">
-            <el-select v-model="orderForm.shareType" placeholder="请选择份额类别">
-              <el-option
-                  v-for="item in shareTypes"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-              />
-            </el-select>
           </el-form-item>
 
           <el-form-item label="付款方式">
@@ -137,9 +126,6 @@
             <el-descriptions-item label="购买金额">
               {{ orderForm.amount }} 元
             </el-descriptions-item>
-            <el-descriptions-item label="份额类别">
-              {{ getShareTypeLabel(orderForm.shareType) }}
-            </el-descriptions-item>
             <el-descriptions-item label="支付方式">
               银行卡支付 ({{ orderForm.cardNumber }})
             </el-descriptions-item>
@@ -164,7 +150,7 @@
     <el-dialog v-model="orderDialogVisible" title="申购成功" width="50%">
       <el-descriptions :column="1" border>
         <el-descriptions-item label="订单编号">{{ orderResult.orderNumber }}</el-descriptions-item>
-        <el-descriptions-item label="基金名称">{{ selectedFund.name }} ({{ selectedFund.code }})</el-descriptions-item>
+        <el-descriptions-item label="基金名称">{{ selectedFund?.value.name||'--' }} ({{ selectedFund?.value.code||'--' }})</el-descriptions-item>
         <el-descriptions-item label="申购金额">{{ orderForm.amount }} 元</el-descriptions-item>
         <el-descriptions-item label="预计确认份额">{{ orderResult.estimatedShares }} 份</el-descriptions-item>
         <el-descriptions-item label="交易日期">{{ orderResult.tradeDate }}</el-descriptions-item>
@@ -218,7 +204,6 @@ const mockFunds = [
     id: 1,
     code: '000001',
     name: '稳健增长债券A',
-    type: 4,
     latestWorth: 1.2345,
     riskLevel: 1
   },
@@ -226,7 +211,6 @@ const mockFunds = [
     id: 2,
     code: '000002',
     name: '科技先锋股票',
-    type: 2,
     latestWorth: 2.5678,
     riskLevel: 3
   }
@@ -239,14 +223,6 @@ const entrustModes = [
   { value: 3, label: '电话委托' },
   { value: 4, label: '自动委托' },
   { value: 5, label: '第三方授权委托' }
-]
-
-const shareTypes = [
-  { value: 1, label: 'A类' },
-  { value: 2, label: 'B类' },
-  { value: 3, label: 'C类' },
-  { value: 4, label: 'D类' },
-  { value: 5, label: 'E类' }
 ]
 
 const productTypes = [
@@ -273,7 +249,6 @@ const selectedFund = ref(null)
 const orderForm = reactive({
   entrustMode: 1,
   amount: null,
-  shareType: 1,
   cardNumber: ''
 })
 
@@ -299,10 +274,6 @@ const riskTagType = (level) => {
 
 const getProductTypeLabel = (type) => {
   return productTypes.find(item => item.value === type)?.label || '未知'
-}
-
-const getShareTypeLabel = (type) => {
-  return shareTypes.find(item => item.value === type)?.label || '未知'
 }
 
 const getEntrustModeLabel = (mode) => {
@@ -347,6 +318,7 @@ const searchFunds = (query, cb) => {
 }
 
 const handleFundSelect = (item) => {
+  console.log(item)
   selectedFund.value = item
 }
 
@@ -386,7 +358,6 @@ const resetForm = () => {
   Object.assign(orderForm, {
     entrustMode: 1,
     amount: null,
-    shareType: 1,
     cardNumber: ''
   })
 }
@@ -398,6 +369,7 @@ const submitOrder = async () => {
     await new Promise(resolve => setTimeout(resolve, 800))
 
     // 模拟返回数据
+    console.log("selectedFund:",selectedFund)
     Object.assign(orderResult, {
       orderNumber: 'ORD' + Date.now().toString().slice(-8),
       estimatedShares: (orderForm.amount / selectedFund.value.latestWorth).toFixed(2),
