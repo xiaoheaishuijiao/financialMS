@@ -4,10 +4,10 @@
     <el-card class="search-card">
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="产品代码">
-          <el-input v-model="searchForm.code" placeholder="请输入产品代码" clearable />
+          <el-input style="width: 200px;" v-model="searchForm.code" placeholder="请输入产品代码" clearable />
         </el-form-item>
         <el-form-item label="产品名称">
-          <el-input v-model="searchForm.name" placeholder="请输入产品名称" clearable />
+          <el-input style="width: 200px;" v-model="searchForm.name" placeholder="请输入产品名称" clearable />
         </el-form-item>
         <el-form-item label="产品类型">
           <el-select style="width: 200px;" v-model="searchForm.type" placeholder="请选择产品类型" clearable>
@@ -76,7 +76,7 @@
         <el-table-column prop="inceptionDate" label="成立日期" width="120" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="viewDetail(row.id)">查看</el-button>
+            <el-button size="small" @click="showProductDetail(row.id)">查看</el-button>
             <el-button size="small" type="primary" @click="editProduct(row.id)">编辑</el-button>
             <el-popconfirm title="确认删除这条记录吗?" @click="delProduct(row.id)">
               <template #reference>
@@ -104,8 +104,8 @@
     <!-- 产品详情对话框 -->
     <el-dialog v-model="detailDialogVisible" title="产品详情" width="80%">
       <div v-if="currentProduct">
-        <el-tabs>
-          <el-tab-pane label="基本信息">
+        <el-tabs v-model="activeTab">
+          <el-tab-pane label="基本信息" name="basic">
             <el-descriptions :column="2" border>
               <el-descriptions-item label="产品代码">{{ currentProduct.code }}</el-descriptions-item>
               <el-descriptions-item label="产品名称">{{ currentProduct.name }}</el-descriptions-item>
@@ -127,10 +127,17 @@
               <el-descriptions-item label="产品描述">{{ currentProduct.description }}</el-descriptions-item>
             </el-descriptions>
           </el-tab-pane>
-          <el-tab-pane label="净值走势">
-            <div style="height: 500px; width: 100%; display: flex; justify-content: center; align-items: center;">
-              <el-empty description="暂无净值数据" v-if="!netValueData.length" />
-              <div v-else ref="chartContainer" style="width: 900px; height: 500px;"></div>
+          <el-tab-pane label="净值走势" name="netValue" @click="fetchNetValueData">
+            <div style="margin-bottom: 20px;">
+              <el-radio-group v-model="netValueRange" @change="fetchNetValueData">
+                <el-radio-button label="1">近一周</el-radio-button>
+                <el-radio-button label="2">近一月</el-radio-button>
+                <el-radio-button label="3">近三月</el-radio-button>
+              </el-radio-group>
+            </div>
+            <div style="height: 400px;">
+              <el-empty v-if="netValueData.length === 0 || false" description="暂无净值数据" />
+              <div v-else ref="chartContainer" style="width: 100%; height: 100%;"></div>
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -234,6 +241,7 @@ import { ref, reactive, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import request from "@/utils/request.js";
+import axios from "axios";
 
 // 模拟数据
 const mockProducts = [
@@ -278,15 +286,41 @@ const mockProducts = [
   }
 ]
 
-const mockNetValue = [
-  { date: '2023-01-01', value: 1.12 },
-  { date: '2023-01-02', value: 1.13 },
-  { date: '2023-01-03', value: 1.15 },
-  { date: '2023-01-04', value: 1.14 },
-  { date: '2023-01-05', value: 1.16 },
-  { date: '2023-01-06', value: 1.18 },
-  { date: '2023-01-07', value: 1.17 }
-]
+// 模拟净值数据
+const mockNetValueData = {
+  '1': [
+    { date: '2023-06-01', value: 1.0235 },
+    { date: '2023-06-02', value: 1.0258 },
+    { date: '2023-06-03', value: 1.0271 },
+    { date: '2023-06-04', value: 1.0249 },
+    { date: '2023-06-05', value: 1.0263 },
+    { date: '2023-06-06', value: 1.0287 },
+    { date: '2023-06-07', value: 1.0302 }
+  ],
+  '2': [
+    { date: '2023-05-08', value: 1.0123 },
+    { date: '2023-05-15', value: 1.0156 },
+    { date: '2023-05-22', value: 1.0189 },
+    { date: '2023-05-29', value: 1.0204 },
+    { date: '2023-06-01', value: 1.0235 },
+    { date: '2023-06-02', value: 1.0258 },
+    { date: '2023-06-03', value: 1.0271 },
+    { date: '2023-06-04', value: 1.0249 },
+    { date: '2023-06-05', value: 1.0263 },
+    { date: '2023-06-06', value: 1.0287 },
+    { date: '2023-06-07', value: 1.0302 }
+  ],
+  '3': [
+    { date: '2023-03-01', value: 0.9987 },
+    { date: '2023-03-15', value: 1.0023 },
+    { date: '2023-04-01', value: 1.0056 },
+    { date: '2023-04-15', value: 1.0089 },
+    { date: '2023-05-01', value: 1.0102 },
+    { date: '2023-05-15', value: 1.0156 },
+    { date: '2023-06-01', value: 1.0235 },
+    { date: '2023-06-07', value: 1.0302 }
+  ]
+}
 
 // 枚举值
 const productTypes = [
@@ -315,10 +349,6 @@ const getRiskLevelLabel = (level) => {
 const getRiskLevelTagType = (level) => {
   const types = { 1: 'success', 2: 'warning', 3: 'danger' }
   return types[level] || ''
-}
-
-const getShareTypeLabel = (type) => {
-  return shareTypes.find(item => item.value === type)?.label || '未知'
 }
 
 // 查询表单
@@ -352,6 +382,16 @@ const netValueData = ref([])
 const chartContainer = ref(null)
 let chartInstance = null
 
+// 净值走势相关数据
+const netValueRange = ref('2')
+// 默认显示"基本信息"标签页
+const activeTab = ref('basic')
+// 净值查询表单
+const netWorthSearch = reactive({
+  id: 1,
+  timeType: 2
+})
+
 // 新增/编辑对话框
 const editDialogVisible = ref(false)
 const isEdit = ref(false)
@@ -377,101 +417,14 @@ const productRules = {
   company: [{ required: true, message: '请输入所属公司', trigger: 'blur' }],
   riskLevel: [{ required: true, message: '请选择风险等级', trigger: 'change' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }],
-  shareType: [{ required: true, message: '请选择份额类别', trigger: 'change' }],
   latestWorth: [{ required: true, message: '请输入最新净值', trigger: 'blur' }],
   totalAssets: [{ required: true, message: '请输入总资产', trigger: 'blur' }],
   inceptionDate: [{ required: true, message: '请选择成立日期', trigger: 'change' }]
 }
 
-// 初始化图表
-const initChart = () => {
-  if (chartInstance) {
-    chartInstance.dispose()
-  }
-
-  chartInstance = echarts.init(chartContainer.value)
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      formatter: '{b}<br/>{a}: {c}'
-    },
-    xAxis: {
-      type: 'category',
-      data: netValueData.value.map(item => item.date)
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: {
-        formatter: '{value}'
-      }
-    },
-    series: [
-      {
-        name: '单位净值',
-        type: 'line',
-        data: netValueData.value.map(item => item.value),
-        smooth: true,
-        lineStyle: {
-          width: 3,
-          color: '#409EFF'
-        },
-        itemStyle: {
-          color: '#409EFF'
-        }
-      }
-    ]
-  }
-  chartInstance.setOption(option)
-}
-
-// 查询产品列表
-// const fetchProducts = async () => {
-//   loading.value = true
-//   try {
-//     // 模拟API请求
-//     await new Promise(resolve => setTimeout(resolve, 500))
-//
-//     // 模拟筛选
-//     let filtered = [...mockProducts]
-//     if (searchForm.code) {
-//       filtered = filtered.filter(item => item.code.includes(searchForm.code))
-//     }
-//     if (searchForm.name) {
-//       filtered = filtered.filter(item => item.name.includes(searchForm.name))
-//     }
-//     if (searchForm.type) {
-//       filtered = filtered.filter(item => item.type === searchForm.type)
-//     }
-//     if (searchForm.riskLevel) {
-//       filtered = filtered.filter(item => item.riskLevel === searchForm.riskLevel)
-//     }
-//     if (searchForm.status !== null) {
-//       filtered = filtered.filter(item => item.status === searchForm.status)
-//     }
-//     if (searchForm.shareType) {
-//       filtered = filtered.filter(item => item.shareType === searchForm.shareType)
-//     }
-//     if (searchForm.company) {
-//       filtered = filtered.filter(item => item.company.includes(searchForm.company))
-//     }
-//
-//     // 模拟分页
-//     const start = (pagination.currentPage - 1) * pagination.pageSize
-//     const end = start + pagination.pageSize
-//     productList.value = filtered.slice(start, end)
-//     pagination.total = filtered.length
-//   } catch (error) {
-//     ElMessage.error('获取产品列表失败')
-//     console.error(error)
-//   } finally {
-//     loading.value = false
-//   }
-// }
-
 // 分页查询产品列表
 const fetchProducts = ()=> {
   request.get("/product/page",{params:searchForm}).then((res) => {
-    console.log(res)
     if (res.code === '200') {
       productList.value = res.data.list
       pagination.total = res.data.total
@@ -482,38 +435,119 @@ const fetchProducts = ()=> {
 }
 
 // 查询产品详情
-const fetchProductDetail = async (id) => {
+const fetchProductDetail = (id) => {
   try {
-    // 模拟API请求
-    await new Promise(resolve => setTimeout(resolve, 300))
-    currentProduct.value = mockProducts.find(item => item.id === id)
-
-    // 模拟获取净值数据
-    await new Promise(resolve => setTimeout(resolve, 300))
-    netValueData.value = [...mockNetValue]
-
-    if (netValueData.value.length) {
-      await nextTick()
-      initChart()
-    }
-  } catch (error) {
+    currentProduct.value = productList.value.find(item => item.id === id)
+  }
+  catch (error) {
     ElMessage.error('获取产品详情失败')
     console.error(error)
   }
 }
 
-// 新增/更新产品
-const saveProduct = async () => {
-  try {
-    // 模拟API请求
-    await new Promise(resolve => setTimeout(resolve, 500))
-    ElMessage.success(isEdit.value ? '产品更新成功' : '产品添加成功')
-    editDialogVisible.value = false
-    fetchProducts()
-  } catch (error) {
-    ElMessage.error(isEdit.value ? '产品更新失败' : '产品添加失败')
-    console.error(error)
+// 渲染图表
+const renderChart = () => {
+  if (netValueData === null){
+    ElMessage.error("暂时没有净值趋势")
+    return
   }
+
+  // 先销毁旧实例
+  if (chartInstance) {
+    chartInstance.dispose()
+  }
+
+  nextTick(() => {
+    chartInstance = echarts.init(chartContainer.value, null, {
+      width: 1200,
+      height: 400
+    });
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        formatter: '{b}<br/>净值: {c}'
+      },
+      xAxis: {
+        type: 'category',
+        data: netValueData.value.map(item => item.date),
+        axisLabel: {
+          rotate: 45
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: {
+          formatter: '{value}'
+        }
+      },
+      series: [{
+        data: netValueData.value.map(item => item.value),
+        type: 'line',
+        smooth: true,
+        lineStyle: {
+          width: 3,
+          color: '#409EFF'
+        },
+        itemStyle: {
+          color: '#409EFF'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(64, 158, 255, 0.5)' },
+            { offset: 1, color: 'rgba(64, 158, 255, 0.1)' }
+          ])
+        }
+      }],
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '10%',
+        containLabel: true
+      }
+    }
+    option && chartInstance.setOption(option)
+    // 添加窗口大小变化监听
+    window.addEventListener('resize', () => {
+      chartInstance.resize()
+    })
+    console.log("渲染成功")
+  })
+}
+
+// 打开产品详情时加载净值数据
+const showProductDetail = (id) => {
+  fetchProductDetail(id)
+  detailDialogVisible.value = true
+  activeTab.value = 'basic'
+  netValueRange.value = '2' // 默认近一月
+
+  // 这里提前加载数据，而不是等待标签页点击
+  // 添加对话框打开后的重绘
+  nextTick(() => {
+    fetchNetValueData()
+    renderChart()
+  })
+}
+
+// 获取净值数据
+const fetchNetValueData = () => {
+  if (!currentProduct.value) return
+
+  netWorthSearch.id = currentProduct.value.id
+  netWorthSearch.timeType = netValueRange.value
+
+  request.get("/product/netWorth", { params: netWorthSearch }).then((res) => {
+    if (res.code === '200') {
+      netValueData.value = res.data
+      renderChart()
+    } else {
+      ElMessage.error("获取净值失败")
+      netValueData.value = []
+    }
+  }).catch(err => {
+    console.error("净值数据请求失败:", err)
+    netValueData.value = []
+  })
 }
 
 // 事件处理
@@ -539,11 +573,6 @@ const handleCurrentChange = (val) => {
   fetchProducts()
 }
 
-const viewDetail = (id) => {
-  detailDialogVisible.value = true
-  fetchProductDetail(id)
-}
-
 const showAddDialog = () => {
   isEdit.value = false
   Object.keys(productForm).forEach(key => {
@@ -552,15 +581,22 @@ const showAddDialog = () => {
   editDialogVisible.value = true
 }
 
-const editProduct = (id) => {
+const editProduct = async (id) => {
   isEdit.value = true
   const product = productList.value.find(item => item.id === id)
-  if (product) {
-    Object.keys(productForm).forEach(key => {
-      productForm[key] = product[key]
-    })
-    editDialogVisible.value = true
-  }
+  Object.assign(productForm,{
+    code: product.id,
+    name: product.name,
+    type: product.type,
+    company: product.company,
+    inceptionDate: product.inceptionDate,
+    latestWorth: product.latestWorth,
+    totalAssets: product.totalAssets,
+    riskLevel: product.riskLevel,
+    status: product.status,
+    description: product.description
+  })
+  editDialogVisible.value = true
 }
 
 const delProduct = (id) => {
@@ -574,17 +610,27 @@ const delProduct = (id) => {
   })
 }
 
-const submitProduct = async () => {
-  try {
-    await productFormRef.value.validate()
-    await saveProduct()
-  } catch (error) {
-    console.error('表单验证失败', error)
-  }
+// 新增产品
+const submitProduct = () => {
+  request.post("/product",productForm).then((res) => {
+    if (res.code === '200') {
+      ElMessage.success("操作成功")
+      editDialogVisible.value = false;
+    }
+    else {
+      ElMessage.error(res.msg)
+    }
+    //刷新
+    fetchProducts()
+  })
 }
 
 // 生命周期
 onMounted(() => {
+  if (chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
+  }
   fetchProducts()
 })
 </script>

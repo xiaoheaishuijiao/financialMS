@@ -13,10 +13,10 @@
           <el-form-item label="客户账号">
             <el-autocomplete
                 v-model="clientQuery"
-                :fetch-suggestions="searchClients"
                 placeholder="请输入客户账号"
                 clearable
                 @select="handleClientSelect"
+                :fetch-suggestions="handleClientQuery"
             >
               <template #default="{ item }">
                 <div>{{ item.accountNumber }} - {{ item.name || item.contactName }}</div>
@@ -98,7 +98,7 @@
           </el-form-item>
 
           <el-form-item label="选择银行卡" prop="cardNumber" v-if="paymentMethod === 1">
-            <el-select v-model="orderForm.cardNumber" placeholder="请选择银行卡">
+            <el-select v-model="orderForm.cardNumber" placeholder="请选择银行卡" @click="bankCardQuery">
               <el-option
                   v-for="card in bankCards"
                   :key="card.id"
@@ -169,6 +169,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import request from "@/utils/request.js";
 
 // 模拟数据
 const mockClients = [
@@ -238,11 +239,13 @@ const currentStep = ref(1)
 
 // 客户选择
 const clientQuery = ref('')
+const clientQueryList = ref(null)
 const selectedClient = ref(null)
 const bankCards = ref([])
 
 // 基金选择
 const fundQuery = ref('')
+const fundQueryList = ref('')
 const selectedFund = ref(null)
 
 // 订单表单
@@ -295,12 +298,24 @@ const searchClients = (query, cb) => {
   }, 300)
 }
 
-const handleClientSelect = async (item) => {
+// 查询客户
+const handleClientQuery = async (query, cb) => {
+  request.get("/purchase/getClient",{params:clientQuery}).then(res => {
+    if (res.code === '200') {
+      clientQueryList.value = res.data
+      console.log(clientQueryList)
+      cb(clientQueryList.value)
+    }else {
+      ElMessage.error("查询客户信息失败")
+    }
+  })
+}
+
+// 选择客户
+const handleClientSelect = (item) => {
   selectedClient.value = item
-  // 模拟获取客户详情
-  await new Promise(resolve => setTimeout(resolve, 300))
-  bankCards.value = item.bankCards
-  orderForm.cardNumber = item.bankCards[0]?.cardNumber || ''
+  console.log("selectedClient:",selectedClient.value.id)
+  clientQuery.value = item.accountNumber
 }
 
 // 基金搜索
@@ -320,6 +335,18 @@ const searchFunds = (query, cb) => {
 const handleFundSelect = (item) => {
   console.log(item)
   selectedFund.value = item
+}
+
+// 查询银行卡
+const bankCardQuery = () => {
+  request.get("/purchase/bankCard",{params:{id:selectedClient.value.id}}).then(res => {
+    console.log("selectedClient.value.id:",selectedClient.value.id)
+    if (res.code === '200'){
+      bankCards.value = res.data
+    }else {
+      ElMessage.error("查询银行卡失败")
+    }
+  })
 }
 
 // 步骤控制

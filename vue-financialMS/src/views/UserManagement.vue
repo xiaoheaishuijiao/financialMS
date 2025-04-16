@@ -4,10 +4,10 @@
     <el-card class="search-card">
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="姓名">
-          <el-input style="margin-left: 28px" v-model="searchForm.name" placeholder="请输入姓名" clearable />
+          <el-input style="margin-left: 28px;width: 200px" v-model="searchForm.name" placeholder="请输入姓名" clearable />
         </el-form-item>
         <el-form-item label="账号">
-          <el-input v-model="searchForm.accountNumber" placeholder="请输入账号" clearable />
+          <el-input style="width: 200px;" v-model="searchForm.accountNumber" placeholder="请输入账号" clearable />
         </el-form-item>
         <el-form-item label="客户类型">
           <el-select style="width: 200px" v-model="searchForm.type" placeholder="请选择类型" clearable>
@@ -332,7 +332,9 @@ const searchForm = reactive({
   type: null,
   riskTolerance: null,
   target: null,
-  status: null
+  status: null,
+  currentPage: 1,
+  pageSize: 10
 })
 
 // 分页
@@ -411,47 +413,16 @@ const certificateTypeLabel = (type) => {
 }
 
 // 查询用户列表
-const fetchUsers = async () => {
-  loading.value = true
-  try {
-    // 模拟API请求
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // 模拟筛选
-    let filtered = [...mockUsers]
-    if (searchForm.name) {
-      filtered = filtered.filter(item =>
-          (item.type === 1 && item.name.includes(searchForm.name)) ||
-          (item.type === 2 && item.contactName.includes(searchForm.name))
-      )
+const fetchUsers = () => {
+  request.get("/user-management",{params:searchForm}).then((res) => {
+    console.log("res:",res)
+    if (res.code === '200') {
+      userList.value = res.data.list
+      pagination.total = res.data.total
+    } else {
+      ElMessage.error("查询失败")
     }
-    if (searchForm.accountNumber) {
-      filtered = filtered.filter(item => item.accountNumber.includes(searchForm.accountNumber))
-    }
-    if (searchForm.type) {
-      filtered = filtered.filter(item => item.type === searchForm.type)
-    }
-    if (searchForm.riskTolerance) {
-      filtered = filtered.filter(item => item.riskTolerance === searchForm.riskTolerance)
-    }
-    if (searchForm.target) {
-      filtered = filtered.filter(item => item.target === searchForm.target)
-    }
-    if (searchForm.status !== null) {
-      filtered = filtered.filter(item => item.status === searchForm.status)
-    }
-
-    // 模拟分页
-    const start = (pagination.currentPage - 1) * pagination.pageSize
-    const end = start + pagination.pageSize
-    userList.value = filtered.slice(start, end)
-    pagination.total = filtered.length
-  } catch (error) {
-    ElMessage.error('获取用户列表失败')
-    console.error(error)
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 // 开户流程
@@ -558,28 +529,17 @@ const editUser = (row) => {
 
 // 保存修改
 const submitEdit = async () => {
-  try {
-    // 验证表单
-    await editFormRef.value.validate()
-
-    // 模拟API请求
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // 更新本地数据
-    const index = mockUsers.findIndex(user => user.id === currentUser.value.id)
-    if (index !== -1) {
-      mockUsers[index] = {
-        ...mockUsers[index],
-        ...basicForm
-      }
+  request.post("/user-management",basicForm).then((res) => {
+    if (res.code === '200') {
+      ElMessage.success("操作成功")
+      detailDialogVisible.value = false;
     }
-
-    ElMessage.success('修改成功')
-    detailDialogVisible.value = false
-    fetchUsers() // 刷新列表
-  } catch (error) {
-    console.error('修改失败', error)
-  }
+    else {
+      ElMessage.error(res.msg)
+    }
+    //刷新
+    fetchUsers()
+  })
 }
 
 // 删除用户
