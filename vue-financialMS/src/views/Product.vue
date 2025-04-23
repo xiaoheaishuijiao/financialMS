@@ -356,7 +356,7 @@ const fetchProducts = ()=> {
       productList.value = res.data.list
       pagination.total = res.data.total
     } else {
-      ElMessage.error("查询失败")
+      ElMessage.error(res.msg||"查询失败")
     }
   })
 }

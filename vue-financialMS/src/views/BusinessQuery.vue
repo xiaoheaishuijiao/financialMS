@@ -113,6 +113,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import request from "@/utils/request.js";
 
 // 模拟数据
 const mockOperations = [
@@ -185,7 +186,9 @@ const searchForm = reactive({
   clientName: '',
   operateDate: '',
   type: null,
-  isSuccess: null
+  isSuccess: null,
+  currentPage: 1,
+  pageSize: 10
 })
 
 // 分页
@@ -216,44 +219,18 @@ const truncateParams = (params) => {
 }
 
 // 查询操作记录
-const fetchOperations = async () => {
-  loading.value = true
-  try {
-    // 模拟API请求
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // 模拟筛选
-    let filtered = [...mockOperations]
-    if (searchForm.operatorUsername) {
-      filtered = filtered.filter(item =>
-          item.operatorUsername.includes(searchForm.operatorUsername))
+const fetchOperations = () => {
+  searchForm.currentPage = pagination.currentPage
+  searchForm.pageSize = pagination.pageSize
+  request.get("/businessQuery",{params:searchForm}).then(res=>{
+    console.log("businessQuery:",res.data)
+    if (res.code === '200') {
+      operationList.value = res.data.list
+      pagination.total = res.data.total
+    } else {
+      ElMessage.error(res.msg||"查询失败")
     }
-    if (searchForm.clientName) {
-      filtered = filtered.filter(item =>
-          item.clientName.includes(searchForm.clientName))
-    }
-    if (searchForm.operateDate) {
-      filtered = filtered.filter(item =>
-          item.operateTime.startsWith(searchForm.operateDate))
-    }
-    if (searchForm.type) {
-      filtered = filtered.filter(item => item.type === searchForm.type)
-    }
-    if (searchForm.isSuccess !== null) {
-      filtered = filtered.filter(item => item.isSuccess === searchForm.isSuccess)
-    }
-
-    // 模拟分页
-    const start = (pagination.currentPage - 1) * pagination.pageSize
-    const end = start + pagination.pageSize
-    operationList.value = filtered.slice(start, end)
-    pagination.total = filtered.length
-  } catch (error) {
-    ElMessage.error('获取操作记录失败')
-    console.error(error)
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 // 分页事件
