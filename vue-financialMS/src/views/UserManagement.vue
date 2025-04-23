@@ -80,7 +80,7 @@
         <el-table-column prop="createTime" label="创建时间" width="180" />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="editUser(row)">修改</el-button>  <!-- 修改这里 -->
+            <el-button size="small" type="primary" @click="editUser(row)">修改</el-button>
             <el-popconfirm title="确认删除这条记录吗?" @confirm="delClient(row.id)">
               <template #reference>
                 <el-button size="small" type="danger">删除</el-button>
@@ -386,13 +386,14 @@ const surveyForm = reactive({
 // 用户详情
 const detailDialogVisible = ref(false)
 const currentUser = ref(null)
-const bankCards = ref([])
 
 // 银行卡管理
 const bankCardDialogVisible = ref(false)
+const bankCards = ref(null)
 const bankCardForm = reactive({
   bankName: '',
   cardNumber: '',
+  clientId: null
 })
 
 // 辅助函数
@@ -414,13 +415,15 @@ const certificateTypeLabel = (type) => {
 
 // 查询用户列表
 const fetchUsers = () => {
+  searchForm.currentPage = pagination.currentPage
+  searchForm.pageSize = pagination.pageSize
   request.get("/user-management",{params:searchForm}).then((res) => {
     console.log("res:",res)
     if (res.code === '200') {
       userList.value = res.data.list
       pagination.total = res.data.total
     } else {
-      ElMessage.error("查询失败")
+      ElMessage.error(res.msg||"查询失败")
     }
   })
 }
@@ -431,28 +434,29 @@ const showCreateDialog = () => {
   createDialogVisible.value = true
 }
 
+// 创建客户
 const nextStep = async () => {
   if (currentStep.value === 1) {
-    try {
-      await basicFormRef.value.validate()
-      // 模拟创建用户API
-      await new Promise(resolve => setTimeout(resolve, 500))
-      ElMessage.success('客户创建成功，请填写风险问卷')
-      currentStep.value = 2
-    } catch (error) {
-      console.error('表单验证失败', error)
-    }
+    console.log("basicForm:",basicForm)
+    request.post("/user-management",basicForm).then(res=>{
+      if (res.code === '200') {
+        ElMessage.success(res.msg||"添加客户成功")
+        currentStep.value++
+      } else {
+        ElMessage.error(res.msg||"添加客户失败")
+      }
+    })
   } else {
-    try {
-      await surveyFormRef.value.validate()
-      // 模拟提交问卷API
-      await new Promise(resolve => setTimeout(resolve, 500))
-      ElMessage.success('问卷提交成功，客户已激活')
-      createDialogVisible.value = false
-      fetchUsers()
-    } catch (error) {
-      console.error('问卷提交失败', error)
-    }
+    console.log("surveyForm:",surveyForm)
+    request.post("/user-management/questionnaire",surveyForm).then(res=>{
+      if (res.code === '200') {
+        ElMessage.success(res.msg||"问卷提交成功，客户已激活")
+        createDialogVisible.value = false
+        fetchUsers()
+      } else {
+        ElMessage.error(res.msg||"问卷提交失败")
+      }
+    })
   }
 }
 
@@ -489,29 +493,19 @@ const handleCreateClose = (done) => {
   }).catch(() => {})
 }
 
-// 用户详情
-const viewDetail = async (id) => {
-  try {
-    // 模拟获取用户详情
-    await new Promise(resolve => setTimeout(resolve, 300))
-    currentUser.value = mockUsers.find(item => item.id === id)
-
-    // 模拟获取银行卡
-    await new Promise(resolve => setTimeout(resolve, 300))
-    bankCards.value = mockBankCards.filter(item => item.userId === id)
-
-    detailDialogVisible.value = true
-  } catch (error) {
-    ElMessage.error('获取用户详情失败')
-    console.error(error)
-  }
-}
-
 // 编辑用户
 const editUser = (row) => {
   currentUser.value = { ...row }
   // 加载银行卡信息
-  bankCards.value = mockBankCards.filter(item => item.userId === row.id)
+  request.get("/user-management/bankCard",row.id).then(res=>{
+    if (res.code === '200') {
+      bankCards.value = res.data
+    }
+    else {
+      ElMessage.error(res.msg||"加载银行卡信息失败")
+    }
+  })
+
   // 填充表单
   Object.assign(basicForm, {
     type: row.type,
@@ -521,21 +515,22 @@ const editUser = (row) => {
     certificateNumber: row.certificateNumber,
     contactNumber: row.contactNumber,
     mail: row.mail,
-    address: row.address
+    address: row.address,
+    status: row.status
   })
   // 打开修改对话框
   detailDialogVisible.value = true
 }
 
 // 保存修改
-const submitEdit = async () => {
+const submitEdit = () => {
   request.post("/user-management",basicForm).then((res) => {
     if (res.code === '200') {
       ElMessage.success("操作成功")
       detailDialogVisible.value = false;
     }
     else {
-      ElMessage.error(res.msg)
+      ElMessage.error(res.msg||"修改失败")
     }
     //刷新
     fetchUsers()
@@ -544,51 +539,49 @@ const submitEdit = async () => {
 
 // 删除用户
 const delClient = (id) => {
-  request.delete("product/"+id).then((res) => {
-    if (res.code === '200') {
+  request.delete("/user-management/"+id).then((res) => {
+    console.log("deleteUserRes",res)
+    if (res.code === "200") {
       ElMessage.success("删除成功")
     }else {
-      ElMessage.error(res.msg)
+      ElMessage.error(res.msg||"删除失败")
     }
     handleSearch()
   })
 }
 
 // 银行卡管理
+// 显示添加银行卡界面
 const showAddBankCard = () => {
   bankCardForm.bankName = ''
   bankCardForm.cardNumber = ''
-  bankCardForm.isDefault = false
+  bankCardForm.clientId = currentUser.value.id
   bankCardDialogVisible.value = true
 }
 
+// 添加银行卡
 const submitBankCard = async () => {
-  try {
-    // 模拟添加银行卡API
-    await new Promise(resolve => setTimeout(resolve, 500))
-    ElMessage.success('银行卡添加成功')
-    bankCardDialogVisible.value = false
-    viewDetail(currentUser.value.id) // 刷新银行卡列表
-  } catch (error) {
-    ElMessage.error('添加银行卡失败')
-    console.error(error)
-  }
+  console.log("bankCardForm:",bankCardForm)
+  request.post("/user-management/bankCard",bankCardForm).then(res=>{
+    if (res.code === '200') {
+      ElMessage.success("添加成功")
+      bankCardDialogVisible.value = false
+    }else {
+      ElMessage.error(res.msg||"添加失败")
+    }
+  })
 }
 
-const deleteCard = async (cardId) => {
-  try {
-    await ElMessageBox.confirm('确定要删除该银行卡吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    // 模拟删除银行卡API
-    await new Promise(resolve => setTimeout(resolve, 500))
-    ElMessage.success('银行卡删除成功')
-    viewDetail(currentUser.value.id) // 刷新银行卡列表
-  } catch (error) {
-    console.log('取消删除')
-  }
+// 删除银行卡
+const deleteCard = (cardId) => {
+  console.log("cardId:",cardId)
+  request.delete("/user-management/bankCard/"+cardId).then(res=>{
+    if (res.code === '200') {
+      ElMessage.success("删除成功")
+    }else {
+      ElMessage.error(res.msg||"删除失败")
+    }
+  })
 }
 
 // 分页事件
@@ -612,6 +605,8 @@ const resetSearch = () => {
   Object.keys(searchForm).forEach(key => {
     searchForm[key] = key === 'type'||'riskTolerance'||'target'||'status' ? null : ''
   })
+  pagination.currentPage = 1
+  pagination.pageSize = 10
   handleSearch()
 }
 

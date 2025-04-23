@@ -135,7 +135,7 @@
     <el-dialog v-model="redeemDialogVisible" title="赎回成功" width="50%">
       <el-descriptions :column="1" border>
         <el-descriptions-item label="赎回编号">{{ redeemResult.orderNumber }}</el-descriptions-item>
-        <el-descriptions-item label="基金名称">{{ selectedHolding?.value.fundName||'--' }} ({{ selectedHolding?.value.fundCode||'--' }})</el-descriptions-item>
+        <el-descriptions-item label="基金名称">{{ selectedHolding?.fundName||'--' }} ({{ selectedHolding?.fundCode||'--' }})</el-descriptions-item>
         <el-descriptions-item label="赎回份额">{{ redeemForm.shares }} 份</el-descriptions-item>
         <el-descriptions-item label="预计到账金额">{{ redeemResult.estimatedAmount }} 元</el-descriptions-item>
         <el-descriptions-item label="交易日期">{{ redeemResult.tradeDate }}</el-descriptions-item>
@@ -154,6 +154,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import request from "@/utils/request.js";
 
 // 模拟数据
 const mockClients = [
@@ -223,6 +224,7 @@ const currentStep = ref(1)
 
 // 客户选择
 const clientQuery = ref('')
+const clientQueryList = ref('')
 const selectedClient = ref(null)
 const clientHoldings = ref([])
 
@@ -232,6 +234,8 @@ const selectedHolding = ref(null)
 
 // 赎回表单
 const redeemForm = reactive({
+  clientId: null,
+  productId: null,
   shares: null,
   cardNumber: ''
 })
@@ -250,42 +254,31 @@ const redeemResult = reactive({
 
 // 客户搜索
 const searchClients = (query, cb) => {
-  // 模拟API请求
-  setTimeout(() => {
-    const results = query
-        ? mockClients.filter(item =>
-            item.accountNumber.includes(query) ||
-            (item.name && item.name.includes(query)) ||
-            (item.contactName && item.contactName.includes(query))
-        )
-        : mockClients.slice(0, 5)
-    cb(results.map(item => ({ ...item, value: item.accountNumber })))
-  }, 300)
+  request.get("/redeem/getClient",{params:clientQuery}).then(res =>{
+    if (res.code === '200') {
+      console.log(res.data)
+      clientQueryList.value = res.data
+      cb(clientQueryList.value)
+    }else {
+      ElMessage.error(res.msg||"未查询到客户信息")
+    }
+  })
 }
 
-const handleClientSelect = async (item) => {
+const handleClientSelect = (item) => {
+  clientQuery.value = item.accountNumber
   selectedClient.value = item
-  // 模拟获取客户持仓
-  await new Promise(resolve => setTimeout(resolve, 300))
-  clientHoldings.value = mockHoldings.filter(h => h.clientId === item.id)
+  clientHoldings.value = item.clientHoldings
 }
 
 // 基金搜索
 const searchFunds = (query, cb) => {
-  // 模拟API请求
-  setTimeout(() => {
-    const results = query
-        ? clientHoldings.value.filter(item =>
-            item.fundCode.includes(query) ||
-            item.fundName.includes(query)
-        )
-        : clientHoldings.value.slice(0, 5)
-    cb(results.map(item => ({ ...item, value: item.fundCode })))
-  }, 300)
+  cb(clientHoldings.value)
 }
 
 const handleFundSelect = (item) => {
   selectedHolding.value = item
+  fundQuery.value = item.fundCode
   redeemForm.cardNumber = item.cardNumber
 }
 
@@ -324,34 +317,33 @@ const resetForm = () => {
   selectedHolding.value = null
   clientHoldings.value = []
   Object.assign(redeemForm, {
+    clientId: null,
+    productId: null,
     shares: null,
     cardNumber: ''
   })
 }
 
 // 提交赎回
-const submitRedeem = async () => {
-  try {
-    // 模拟API请求
-    await new Promise(resolve => setTimeout(resolve, 800))
-
-    // 计算预计金额（份额 * 最新净值）
-    const fund = mockFunds.find(f => f.id === selectedHolding.value.fundId)
-    const amount = (redeemForm.shares * fund.latestWorth).toFixed(2)
-
-    // 模拟返回数据
-    Object.assign(redeemResult, {
-      orderNumber: 'RED' + Date.now().toString().slice(-8),
-      estimatedAmount: amount,
-      tradeDate: new Date().toLocaleDateString(),
-      estimatedArrivalDate: new Date(Date.now() + 86400000 * 3).toLocaleDateString()
-    })
-
-    redeemDialogVisible.value = true
-  } catch (error) {
-    ElMessage.error('赎回提交失败')
-    console.error(error)
-  }
+const submitRedeem =  () => {
+  // 处理提交信息
+  console.log("selectHolding:",selectedHolding)
+  redeemForm.clientId = selectedClient.value.id
+  redeemForm.productId = selectedHolding.value.fundId
+  // 发送赎回请求
+  request.post("/redeem",{params:redeemForm}).then(res => {
+    if(res.code === '200'){
+      Object.assign(redeemResult, {
+        orderNumber: 'RED' + Date.now().toString().slice(-8),
+        estimatedAmount: redeemForm.shares,
+        tradeDate: new Date().toLocaleDateString(),
+        estimatedArrivalDate: new Date(Date.now() + 86400000 * 3).toLocaleDateString()
+      })
+      redeemDialogVisible.value = true
+    }else {
+      ElMessage.error(res.msg||"提交赎回订单失败")
+    }
+  })
 }
 
 const finishRedeem = () => {

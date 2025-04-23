@@ -150,7 +150,7 @@
     <el-dialog v-model="orderDialogVisible" title="申购成功" width="50%">
       <el-descriptions :column="1" border>
         <el-descriptions-item label="订单编号">{{ orderResult.orderNumber }}</el-descriptions-item>
-        <el-descriptions-item label="基金名称">{{ selectedFund?.value.name||'--' }} ({{ selectedFund?.value.code||'--' }})</el-descriptions-item>
+        <el-descriptions-item label="基金名称">{{ selectedFund?.name||'--' }} ({{ selectedFund?.code||'--' }})</el-descriptions-item>
         <el-descriptions-item label="申购金额">{{ orderForm.amount }} 元</el-descriptions-item>
         <el-descriptions-item label="预计确认份额">{{ orderResult.estimatedShares }} 份</el-descriptions-item>
         <el-descriptions-item label="交易日期">{{ orderResult.tradeDate }}</el-descriptions-item>
@@ -172,50 +172,6 @@ import { ElMessage } from 'element-plus'
 import request from "@/utils/request.js";
 
 // 模拟数据
-const mockClients = [
-  {
-    id: 1,
-    name: '张三',
-    accountNumber: 'AC10001',
-    type: 1,
-    contactName: '',
-    contactNumber: '13800138000',
-    riskTolerance: 2,
-    bankCards: [
-      { id: 1, bankName: '中国工商银行', cardNumber: '6222021001123456789' },
-      { id: 2, bankName: '中国建设银行', cardNumber: '6227001001234567890' }
-    ]
-  },
-  {
-    id: 2,
-    name: '',
-    accountNumber: 'AC20001',
-    type: 2,
-    contactName: '李四',
-    contactNumber: '13900139000',
-    riskTolerance: 3,
-    bankCards: [
-      { id: 3, bankName: '中国银行', cardNumber: '4563510012345678901' }
-    ]
-  }
-]
-
-const mockFunds = [
-  {
-    id: 1,
-    code: '000001',
-    name: '稳健增长债券A',
-    latestWorth: 1.2345,
-    riskLevel: 1
-  },
-  {
-    id: 2,
-    code: '000002',
-    name: '科技先锋股票',
-    latestWorth: 2.5678,
-    riskLevel: 3
-  }
-]
 
 // 枚举值
 const entrustModes = [
@@ -265,6 +221,13 @@ const orderResult = reactive({
   tradeDate: '',
   estimatedConfirmDate: ''
 })
+const orderResultForm = reactive({
+  clientId: '',
+  fundCode: '',
+  amount: null,
+  cardNumber: '',
+  entrustMode: 1,
+})
 
 // 辅助函数
 const riskLabel = (level) => {
@@ -275,27 +238,8 @@ const riskTagType = (level) => {
   return ['success', 'warning', 'danger'][level - 1] || ''
 }
 
-const getProductTypeLabel = (type) => {
-  return productTypes.find(item => item.value === type)?.label || '未知'
-}
-
 const getEntrustModeLabel = (mode) => {
   return entrustModes.find(item => item.value === mode)?.label || '未知'
-}
-
-// 客户搜索
-const searchClients = (query, cb) => {
-  // 模拟API请求
-  setTimeout(() => {
-    const results = query
-        ? mockClients.filter(item =>
-            item.accountNumber.includes(query) ||
-            (item.name && item.name.includes(query)) ||
-            (item.contactName && item.contactName.includes(query))
-        )
-        : mockClients.slice(0, 5)
-    cb(results.map(item => ({ ...item, value: item.accountNumber })))
-  }, 300)
 }
 
 // 查询客户
@@ -306,7 +250,7 @@ const handleClientQuery = async (query, cb) => {
       console.log(clientQueryList)
       cb(clientQueryList.value)
     }else {
-      ElMessage.error("查询客户信息失败")
+      ElMessage.error(res.msg||"未查询到客户信息")
     }
   })
 }
@@ -318,23 +262,23 @@ const handleClientSelect = (item) => {
   clientQuery.value = item.accountNumber
 }
 
-// 基金搜索
+// 查询客户
 const searchFunds = (query, cb) => {
-  // 模拟API请求
-  setTimeout(() => {
-    const results = query
-        ? mockFunds.filter(item =>
-            item.code.includes(query) ||
-            item.name.includes(query)
-        )
-        : mockFunds.slice(0, 5)
-    cb(results.map(item => ({ ...item, value: item.code })))
-  }, 300)
+  request.get("/purchase/productCode",{params:fundQuery}).then(res => {
+    if (res.code === '200') {
+      fundQueryList.value = res.data
+      cb(fundQueryList.value)
+    }else {
+      ElMessage.error(res.msg||"未查询到基金信息")
+    }
+  })
 }
 
+// 选择基金
 const handleFundSelect = (item) => {
-  console.log(item)
   selectedFund.value = item
+  console.log("selectedClient:",selectedFund.value.id)
+  fundQuery.value = item.code
 }
 
 // 查询银行卡
@@ -344,7 +288,7 @@ const bankCardQuery = () => {
     if (res.code === '200'){
       bankCards.value = res.data
     }else {
-      ElMessage.error("查询银行卡失败")
+      ElMessage.error(res.msg||"查询银行卡失败")
     }
   })
 }
@@ -390,26 +334,31 @@ const resetForm = () => {
 }
 
 // 提交订单
-const submitOrder = async () => {
-  try {
-    // 模拟API请求
-    await new Promise(resolve => setTimeout(resolve, 800))
-
-    // 模拟返回数据
-    console.log("selectedFund:",selectedFund)
-    Object.assign(orderResult, {
-      orderNumber: 'ORD' + Date.now().toString().slice(-8),
-      estimatedShares: (orderForm.amount / selectedFund.value.latestWorth).toFixed(2),
-      tradeDate: new Date().toLocaleDateString(),
-      estimatedConfirmDate: new Date(Date.now() + 86400000 * 2).toLocaleDateString()
-    })
-
-    orderDialogVisible.value = true
-  } catch (error) {
-    ElMessage.error('申购提交失败')
-    console.error(error)
-  }
+const submitOrder =  () => {
+  // 处理提交信息
+  Object.assign(orderResultForm,{
+    clientId: selectedClient.value.id,
+    fundCode: selectedFund.value.code,
+    amount: orderForm.amount,
+    cardNumber: orderForm.cardNumber,
+    entrustMode: orderForm.entrustMode,
+  })
+  console.log("orderResultForm:",orderResultForm)
+  request.post("/purchase",orderResultForm).then(res => {
+    if(res.code === '200'){
+      Object.assign(orderResult, {
+        orderNumber: 'ORD' + Date.now().toString().slice(-8),
+        estimatedShares: (orderForm.amount / selectedFund.value.latestWorth).toFixed(2),
+        tradeDate: new Date().toLocaleDateString(),
+        estimatedConfirmDate: new Date(Date.now() + 86400000 * 2).toLocaleDateString()
+      })
+      orderDialogVisible.value = true
+    }else {
+      ElMessage.error(res.msg||"提交订单失败")
+    }
+  })
 }
+
 
 const finishPurchase = () => {
   orderDialogVisible.value = false

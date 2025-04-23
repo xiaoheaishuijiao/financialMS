@@ -78,7 +78,7 @@
           <template #default="{ row }">
             <el-button size="small" @click="showProductDetail(row.id)">查看</el-button>
             <el-button size="small" type="primary" @click="editProduct(row.id)">编辑</el-button>
-            <el-popconfirm title="确认删除这条记录吗?" @click="delProduct(row.id)">
+            <el-popconfirm title="确认删除这条记录吗?" @confirm="delProduct(row.id)">
               <template #reference>
                 <el-button size="small" type="danger">删除</el-button>
               </template>
@@ -127,7 +127,7 @@
               <el-descriptions-item label="产品描述">{{ currentProduct.description }}</el-descriptions-item>
             </el-descriptions>
           </el-tab-pane>
-          <el-tab-pane label="净值走势" name="netValue" @click="fetchNetValueData">
+          <el-tab-pane label="净值走势" name="netValue" lazy>
             <div style="margin-bottom: 20px;">
               <el-radio-group v-model="netValueRange" @change="fetchNetValueData">
                 <el-radio-button label="1">近一周</el-radio-button>
@@ -135,9 +135,13 @@
                 <el-radio-button label="3">近三月</el-radio-button>
               </el-radio-group>
             </div>
-            <div style="height: 400px;">
-              <el-empty v-if="netValueData.length === 0 || false" description="暂无净值数据" />
-              <div v-else ref="chartContainer" style="width: 100%; height: 100%;"></div>
+            <div style="height: 400px; width: 100%;">
+              <el-empty v-if="netValueData.length === 0" description="暂无净值数据" />
+              <div
+                  v-else
+                  ref="chartContainer"
+                  style="width: 100%; height: 100%; min-height: 400px;"
+              ></div>
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -237,90 +241,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import {ref, reactive, onMounted, nextTick, watch} from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import request from "@/utils/request.js";
 import axios from "axios";
-
-// 模拟数据
-const mockProducts = [
-  {
-    id: 1,
-    code: '000001',
-    name: '稳健增长债券A',
-    type: 1,
-    company: '华夏基金',
-    inceptionDate: '2020-01-15',
-    latestWorth: 1.2345,
-    totalAssets: 125.67,
-    riskLevel: 1,
-    status: 1,
-    description: '主要投资于高等级信用债，追求稳健收益'
-  },
-  {
-    id: 2,
-    code: '000002',
-    name: '科技先锋股票',
-    type: 2,
-    company: '易方达基金',
-    inceptionDate: '2019-05-20',
-    latestWorth: 2.5678,
-    totalAssets: 89.32,
-    riskLevel: 3,
-    status: 1,
-    description: '重点投资科技创新领域龙头企业'
-  },
-  {
-    id: 3,
-    code: '000003',
-    name: '平衡配置混合',
-    type: 3,
-    company: '南方基金',
-    inceptionDate: '2018-11-10',
-    latestWorth: 1.8765,
-    totalAssets: 156.89,
-    riskLevel: 2,
-    status: 0,
-    description: '股债平衡配置，追求长期稳健增值'
-  }
-]
-
-// 模拟净值数据
-const mockNetValueData = {
-  '1': [
-    { date: '2023-06-01', value: 1.0235 },
-    { date: '2023-06-02', value: 1.0258 },
-    { date: '2023-06-03', value: 1.0271 },
-    { date: '2023-06-04', value: 1.0249 },
-    { date: '2023-06-05', value: 1.0263 },
-    { date: '2023-06-06', value: 1.0287 },
-    { date: '2023-06-07', value: 1.0302 }
-  ],
-  '2': [
-    { date: '2023-05-08', value: 1.0123 },
-    { date: '2023-05-15', value: 1.0156 },
-    { date: '2023-05-22', value: 1.0189 },
-    { date: '2023-05-29', value: 1.0204 },
-    { date: '2023-06-01', value: 1.0235 },
-    { date: '2023-06-02', value: 1.0258 },
-    { date: '2023-06-03', value: 1.0271 },
-    { date: '2023-06-04', value: 1.0249 },
-    { date: '2023-06-05', value: 1.0263 },
-    { date: '2023-06-06', value: 1.0287 },
-    { date: '2023-06-07', value: 1.0302 }
-  ],
-  '3': [
-    { date: '2023-03-01', value: 0.9987 },
-    { date: '2023-03-15', value: 1.0023 },
-    { date: '2023-04-01', value: 1.0056 },
-    { date: '2023-04-15', value: 1.0089 },
-    { date: '2023-05-01', value: 1.0102 },
-    { date: '2023-05-15', value: 1.0156 },
-    { date: '2023-06-01', value: 1.0235 },
-    { date: '2023-06-07', value: 1.0302 }
-  ]
-}
 
 // 枚举值
 const productTypes = [
@@ -424,6 +349,8 @@ const productRules = {
 
 // 分页查询产品列表
 const fetchProducts = ()=> {
+  searchForm.pageSize = pagination.pageSize
+  searchForm.currentPage = pagination.currentPage
   request.get("/product/page",{params:searchForm}).then((res) => {
     if (res.code === '200') {
       productList.value = res.data.list
@@ -445,109 +372,136 @@ const fetchProductDetail = (id) => {
   }
 }
 
+const showProductDetail = async (id) => {
+  try {
+    fetchProductDetail(id);
+    detailDialogVisible.value = true;
+    activeTab.value = 'basic';
+    netValueRange.value = '2';
+
+    // 等待对话框完全打开
+    await nextTick();
+
+    // 加载数据并渲染图表
+    await fetchNetValueData();
+
+    // 确保切换到净值走势tab时图表能正确显示
+    watch(activeTab, (newTab) => {
+      if (newTab === 'netValue') {
+        nextTick(() => {
+          if (chartInstance) {
+            chartInstance.resize();
+          } else {
+            renderChart();
+          }
+        });
+      }
+    });
+  } catch (err) {
+    console.error("打开详情失败:", err);
+  }
+}
+
+// 修改后的 renderChart 方法
 // 渲染图表
 const renderChart = () => {
-  if (netValueData === null){
-    ElMessage.error("暂时没有净值趋势")
-    return
-  }
-
-  // 先销毁旧实例
-  if (chartInstance) {
-    chartInstance.dispose()
+  // 确保数据和容器都存在
+  if (!chartContainer.value || !netValueData.value || netValueData.value.length === 0) {
+    return;
   }
 
   nextTick(() => {
-    chartInstance = echarts.init(chartContainer.value, null, {
-      width: 1200,
-      height: 400
-    });
-    const option = {
-      tooltip: {
-        trigger: 'axis',
-        formatter: '{b}<br/>净值: {c}'
-      },
-      xAxis: {
-        type: 'category',
-        data: netValueData.value.map(item => item.date),
-        axisLabel: {
-          rotate: 45
-        }
-      },
-      yAxis: {
-        type: 'value',
-        axisLabel: {
-          formatter: '{value}'
-        }
-      },
-      series: [{
-        data: netValueData.value.map(item => item.value),
-        type: 'line',
-        smooth: true,
-        lineStyle: {
-          width: 3,
-          color: '#409EFF'
-        },
-        itemStyle: {
-          color: '#409EFF'
-        },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(64, 158, 255, 0.5)' },
-            { offset: 1, color: 'rgba(64, 158, 255, 0.1)' }
-          ])
-        }
-      }],
-      grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '10%',
-        containLabel: true
+    try {
+      // 销毁旧实例
+      if (chartInstance) {
+        chartInstance.dispose();
+        chartInstance = null;
       }
+
+      // 初始化新实例
+      chartInstance = echarts.init(chartContainer.value);
+
+      const option = {
+        tooltip: {
+          trigger: 'axis',
+          formatter: '{b}<br/>净值: {c}'
+        },
+        xAxis: {
+          type: 'category',
+          data: netValueData.value.map(item => item.date),
+          axisLabel: {
+            rotate: 45
+          }
+        },
+        yAxis: {
+          type: 'value',
+          axisLabel: {
+            formatter: '{value}'
+          }
+        },
+        series: [{
+          data: netValueData.value.map(item => item.value),
+          type: 'line',
+          smooth: true,
+          lineStyle: {
+            width: 3,
+            color: '#409EFF'
+          },
+          itemStyle: {
+            color: '#409EFF'
+          },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(64, 158, 255, 0.5)' },
+              { offset: 1, color: 'rgba(64, 158, 255, 0.1)' }
+            ])
+          }
+        }],
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '10%',
+          containLabel: true
+        }
+      }
+
+      chartInstance.setOption(option);
+
+      // 添加响应式调整
+      const resizeHandler = () => chartInstance.resize();
+      window.addEventListener('resize', resizeHandler);
+
+      // 立即执行一次resize确保正确显示
+      setTimeout(resizeHandler, 50);
+    } catch (err) {
+      console.error("图表渲染失败:", err);
     }
-    option && chartInstance.setOption(option)
-    // 添加窗口大小变化监听
-    window.addEventListener('resize', () => {
-      chartInstance.resize()
-    })
-    console.log("渲染成功")
-  })
-}
-
-// 打开产品详情时加载净值数据
-const showProductDetail = (id) => {
-  fetchProductDetail(id)
-  detailDialogVisible.value = true
-  activeTab.value = 'basic'
-  netValueRange.value = '2' // 默认近一月
-
-  // 这里提前加载数据，而不是等待标签页点击
-  // 添加对话框打开后的重绘
-  nextTick(() => {
-    fetchNetValueData()
-    renderChart()
-  })
-}
+  });
+};
 
 // 获取净值数据
-const fetchNetValueData = () => {
-  if (!currentProduct.value) return
+const fetchNetValueData = async () => {
+  if (!currentProduct.value) return;
 
-  netWorthSearch.id = currentProduct.value.id
-  netWorthSearch.timeType = netValueRange.value
+  try {
+    const res = await request.get("/product/netWorth", {
+      params: {
+        id: currentProduct.value.id,
+        timeType: netValueRange.value
+      }
+    });
 
-  request.get("/product/netWorth", { params: netWorthSearch }).then((res) => {
     if (res.code === '200') {
-      netValueData.value = res.data
-      renderChart()
+      netValueData.value = res.data;
+      await nextTick();
+      renderChart();
     } else {
-      ElMessage.error("获取净值失败")
-      netValueData.value = []
+      ElMessage.error(res.msg || "获取净值失败");
     }
-  }).catch(err => {
-    console.error("净值数据请求失败:", err)
-    netValueData.value = []
-  })
+  } catch (err) {
+    console.error("净值数据请求失败:", err);
+    ElMessage.error("获取净值数据失败");
+  }
 }
 
 // 事件处理
@@ -600,11 +554,14 @@ const editProduct = async (id) => {
 }
 
 const delProduct = (id) => {
-  request.delete("product/"+id).then((res) => {
-    if (res.code === '200') {
+  console.log("我被点击了")
+  console.log("/product/"+id)
+  request.delete("/product/"+id).then((res) => {
+    console.log("delProductRes:",res)
+    if (res.code === "200") {
       ElMessage.success("删除成功")
     }else {
-      ElMessage.error(res.msg)
+      ElMessage.error(res.msg||"删除失败")
     }
     handleSearch()
   })
@@ -618,7 +575,7 @@ const submitProduct = () => {
       editDialogVisible.value = false;
     }
     else {
-      ElMessage.error(res.msg)
+      ElMessage.error(res.msg||"提交失败")
     }
     //刷新
     fetchProducts()
