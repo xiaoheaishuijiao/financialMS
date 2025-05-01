@@ -253,7 +253,7 @@ const confirmDayInit = async () => {
     })
 
     if (res.code === '200') {
-      isOperating.value = true
+      isOperating.value = false
       currentWorkDay.value = nextWorkDay.value
       dayInitDialogVisible.value = false
       addOperationLog(`日初始化成功，新工作日：${currentWorkDay.value}`)
@@ -289,7 +289,7 @@ const confirmSettle = async () => {
     })
 
     if (res.code === '200') {
-      isOperating.value = false
+      isOperating.value = true
       settleDialogVisible.value = false
       addOperationLog(`日终结算成功，工作日：${currentWorkDay.value}`)
       ElMessage.success('日终结算成功')
