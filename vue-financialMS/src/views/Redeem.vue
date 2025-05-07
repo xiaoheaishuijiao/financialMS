@@ -156,69 +156,6 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from "@/utils/request.js";
 
-// 模拟数据
-const mockClients = [
-  {
-    id: 1,
-    name: '张三',
-    accountNumber: 'AC10001',
-    type: 1,
-    contactName: '',
-    contactNumber: '13800138000'
-  },
-  {
-    id: 2,
-    name: '',
-    accountNumber: 'AC20001',
-    type: 2,
-    contactName: '李四',
-    contactNumber: '13900139000'
-  }
-]
-
-const mockHoldings = [
-  {
-    clientId: 1,
-    fundId: 1,
-    fundCode: '000001',
-    fundName: '稳健增长债券A',
-    shareTotal: 5000,
-    cardNumber: '6222021001123456789'
-  },
-  {
-    clientId: 1,
-    fundId: 2,
-    fundCode: '000002',
-    fundName: '科技先锋股票',
-    shareTotal: 3000,
-    cardNumber: '6227001001234567890'
-  },
-  {
-    clientId: 2,
-    fundId: 1,
-    fundCode: '000001',
-    fundName: '稳健增长债券A',
-    shareTotal: 10000,
-    cardNumber: '4563510012345678901'
-  }
-]
-
-const mockFunds = [
-  {
-    id: 1,
-    code: '000001',
-    name: '稳健增长债券A',
-    latestWorth: 1.2345
-  },
-  {
-    id: 2,
-    code: '000002',
-    name: '科技先锋股票',
-    latestWorth: 2.5678
-  }
-]
-
-
 // 步骤控制
 const currentStep = ref(1)
 
@@ -237,7 +174,8 @@ const redeemForm = reactive({
   clientId: null,
   productId: null,
   shares: null,
-  cardNumber: ''
+  cardNumber: '',
+  cardId: null
 })
 
 const paymentMethod = ref(1)
@@ -251,10 +189,9 @@ const redeemResult = reactive({
   estimatedArrivalDate: ''
 })
 
-
 // 客户搜索
 const searchClients = (query, cb) => {
-  request.get("/redeem/getClient",{params:clientQuery}).then(res =>{
+  request.get("/client/redeem/code",{params:clientQuery}).then(res =>{
     if (res.code === '200') {
       console.log(res.data)
       clientQueryList.value = res.data
@@ -273,13 +210,38 @@ const handleClientSelect = (item) => {
 
 // 基金搜索
 const searchFunds = (query, cb) => {
-  cb(clientHoldings.value)
-}
+  if (!query || !query.trim()) {
+    cb([]); // 空查询返回空数组
+    return cb(clientHoldings.value.slice(0,5));
+  }
+
+  const searchText = query.trim();
+
+  // 模糊匹配逻辑（支持代码、名称、拼音首字母）
+  const results = clientHoldings.value.filter(fund => {
+    return (
+        (fund.fundCode && fund.fundCode.toLowerCase().includes(searchText))
+    );
+  });
+
+  // 按匹配度排序（代码完全匹配排最前）
+  results.sort((a, b) => {
+    const aCodeMatch = a.fundCode?.toLowerCase() === searchText;
+    const bCodeMatch = b.fundCode?.toLowerCase() === searchText;
+    if (aCodeMatch && !bCodeMatch) return -1;
+    if (!aCodeMatch && bCodeMatch) return 1;
+    return 0;
+  });
+
+  // 返回前5条结果
+  cb(results.slice(0, 5));
+};
 
 const handleFundSelect = (item) => {
   selectedHolding.value = item
   fundQuery.value = item.fundCode
   redeemForm.cardNumber = item.cardNumber
+  redeemForm.cardId = item.cardId
 }
 
 // 步骤控制
@@ -330,8 +292,9 @@ const submitRedeem =  () => {
   console.log("selectHolding:",selectedHolding)
   redeemForm.clientId = selectedClient.value.id
   redeemForm.productId = selectedHolding.value.fundId
+  console.log("redeemForm:",redeemForm)
   // 发送赎回请求
-  request.post("/redeem",{params:redeemForm}).then(res => {
+  request.post("/order/redeem",{params:redeemForm}).then(res => {
     if(res.code === '200'){
       Object.assign(redeemResult, {
         orderNumber: 'RED' + Date.now().toString().slice(-8),

@@ -23,20 +23,22 @@
 import {getCurrentInstance, reactive} from "vue";
 import router from "@/router/index.js";
 import {ElMessage} from "element-plus";
+import request from "@/utils/request.js";
 
-  const { proxy } = getCurrentInstance()
-  let admin=reactive({name:"admin",password:"123456"})
 
-  function login(admin) {
-    if (admin.name==="admin"&&admin.password==="123456"){
-      ElMessage.success("登陆成功")
-      router.push({
-        path:"/"
-      })
-    }else {
-      ElMessage.error("用户名或密码错误");
+const admin=reactive({name:"admin",password:"123456"})
+
+const login = (admin) => {
+  request.post("/user",admin).then(res => {
+    if (res.code === '200') {
+      ElMessage.success("登录成功")
+      localStorage.setItem("user",JSON.stringify(res.data))
+      router.push({path:"/"});
+    } else {
+      ElMessage.error("用户名或密码错误！")
     }
-  }
+  })
+}
 </script>
 
 <style scoped>

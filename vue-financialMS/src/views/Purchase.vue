@@ -182,14 +182,6 @@ const entrustModes = [
   { value: 5, label: '第三方授权委托' }
 ]
 
-const productTypes = [
-  { value: 1, label: '货币型' },
-  { value: 2, label: '股票型' },
-  { value: 3, label: '混合型' },
-  { value: 4, label: '债券型' },
-  { value: 5, label: '指数型' }
-]
-
 // 步骤控制
 const currentStep = ref(1)
 
@@ -208,7 +200,8 @@ const selectedFund = ref(null)
 const orderForm = reactive({
   entrustMode: 1,
   amount: null,
-  cardNumber: ''
+  cardNumber: '',
+  cardId: null,
 })
 
 const paymentMethod = ref(1)
@@ -223,9 +216,9 @@ const orderResult = reactive({
 })
 const orderResultForm = reactive({
   clientId: '',
-  fundCode: '',
+  fundId: '',
   amount: null,
-  cardNumber: '',
+  cardId: '',
   entrustMode: 1,
 })
 
@@ -244,7 +237,8 @@ const getEntrustModeLabel = (mode) => {
 
 // 查询客户
 const handleClientQuery = async (query, cb) => {
-  request.get("/purchase/getClient",{params:clientQuery}).then(res => {
+  request.get("/client/code",{params:clientQuery}).then(res => {
+    console.log("查询客户的res值",res)
     if (res.code === '200') {
       clientQueryList.value = res.data
       console.log(clientQueryList)
@@ -262,9 +256,9 @@ const handleClientSelect = (item) => {
   clientQuery.value = item.accountNumber
 }
 
-// 查询客户
+// 查询产品
 const searchFunds = (query, cb) => {
-  request.get("/purchase/productCode",{params:fundQuery}).then(res => {
+  request.get("/product/code",{params:fundQuery}).then(res => {
     if (res.code === '200') {
       fundQueryList.value = res.data
       cb(fundQueryList.value)
@@ -283,7 +277,7 @@ const handleFundSelect = (item) => {
 
 // 查询银行卡
 const bankCardQuery = () => {
-  request.get("/purchase/bankCard",{params:{id:selectedClient.value.id}}).then(res => {
+  request.get("/bankCard/list",{params:{clientId:selectedClient.value.id}}).then(res => {
     console.log("selectedClient.value.id:",selectedClient.value.id)
     if (res.code === '200'){
       bankCards.value = res.data
@@ -336,16 +330,18 @@ const resetForm = () => {
 // 提交订单
 const submitOrder =  () => {
   // 处理提交信息
+  console.log("根据银行卡号找到的银行卡：",bankCards.value.find(card => card.cardNumber === orderForm.cardNumber))
   Object.assign(orderResultForm,{
     clientId: selectedClient.value.id,
-    fundCode: selectedFund.value.code,
+    fundId: selectedFund.value.id,
     amount: orderForm.amount,
-    cardNumber: orderForm.cardNumber,
+    cardId: bankCards.value.find(card => card.cardNumber === orderForm.cardNumber).id,
     entrustMode: orderForm.entrustMode,
   })
   console.log("orderResultForm:",orderResultForm)
-  request.post("/purchase",orderResultForm).then(res => {
+  request.post("/order/purchase",orderResultForm).then(res => {
     if(res.code === '200'){
+      console.log("orderCardId",orderResultForm.cardId)
       Object.assign(orderResult, {
         orderNumber: 'ORD' + Date.now().toString().slice(-8),
         estimatedShares: (orderForm.amount / selectedFund.value.latestWorth).toFixed(2),

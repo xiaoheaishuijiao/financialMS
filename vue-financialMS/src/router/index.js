@@ -8,6 +8,7 @@ import Clearing from '@/views/Clearing.vue';
 import BusinessQuery from '@/views/BusinessQuery.vue';
 import Login from '@/views/Login.vue';
 import Product from "@/views/Product.vue";
+import {ElMessage} from "element-plus";
 
 const routes = [
   {
@@ -30,5 +31,18 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
 });
+
+// 路由守卫
+router.beforeEach((to ,from, next) => {
+  if (to.path ==='/login') {
+    next();
+  }
+  const user = localStorage.getItem("user");
+  if (!user && to.path !== '/login' ){
+    ElMessage.warning("未登录或登录状态过期")
+    return next("/login");
+  }
+  next();
+})
 
 export default router;

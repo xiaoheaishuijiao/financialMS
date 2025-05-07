@@ -18,7 +18,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:4523/m1/6142826-5834688-default', // Mock 服务地址
+        target: 'http://192.168.43.58:8084', // Mock 服务地址
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '') // 移除/api前缀
       }

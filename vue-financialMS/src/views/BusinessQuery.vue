@@ -115,59 +115,6 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from "@/utils/request.js";
 
-// 模拟数据
-const mockOperations = [
-  {
-    id: 1,
-    type: 1,
-    isSuccess: true,
-    operatorId: 1,
-    operatorUsername: 'admin',
-    clientName: '张三',
-    operateTime: '2023-06-15 10:30:25',
-    service: 'fundPurchaseService',
-    params: JSON.stringify({ fundCode: '000001', amount: 10000, shareType: 1 })
-  },
-  {
-    id: 2,
-    type: 2,
-    isSuccess: true,
-    operatorId: 1,
-    operatorUsername: 'admin',
-    clientName: '李四',
-    operateTime: '2023-06-15 11:15:30',
-    service: 'fundRedeemService',
-    params: JSON.stringify({ fundCode: '000002', shares: 500, shareType: 2 })
-  },
-  {
-    id: 3,
-    type: 3,
-    isSuccess: true,
-    operatorId: 2,
-    operatorUsername: 'operator1',
-    clientName: '王五',
-    operateTime: '2023-06-16 09:20:15',
-    service: 'clientCreateService',
-    params: JSON.stringify({ name: '王五', type: 1, certificateType: 1 })
-  },
-  {
-    id: 4,
-    type: 4,
-    isSuccess: false,
-    operatorId: 2,
-    operatorUsername: 'operator1',
-    clientName: '赵六',
-    operateTime: '2023-06-16 14:45:50',
-    service: 'riskEvaluationService',
-    params: JSON.stringify({ age: 35, experience: 2, target: 2 })
-  }
-]
-
-const mockOperators = [
-  { id: 1, username: 'admin' },
-  { id: 2, username: 'operator1' }
-]
-
 // 业务类型枚举
 const operationTypes = [
   { value: 1, label: '申购' },

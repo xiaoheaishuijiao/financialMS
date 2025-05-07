@@ -78,9 +78,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="editUser(row)">修改</el-button>
+            <el-button size="small" type="warning" @click="editQuestionnaire(row)">填写问卷</el-button>
             <el-popconfirm title="确认删除这条记录吗?" @confirm="delClient(row.id)">
               <template #reference>
                 <el-button size="small" type="danger">删除</el-button>
@@ -154,39 +155,72 @@
 
       <!-- 第二步：风险问卷 -->
       <el-form v-if="currentStep === 2" ref="surveyFormRef" :model="surveyForm" label-width="180px" label-position="left">
-        <el-form-item label="1. 您的年龄">
+        <el-form-item label="1. 您的性别">
+          <el-radio-group v-model="surveyForm.gender">
+            <el-radio :label="1">男</el-radio>
+            <el-radio :label="2">女</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="2. 您的年龄">
           <el-radio-group v-model="surveyForm.age">
             <el-radio :label="1">30岁以下</el-radio>
-            <el-radio :label="2">30-50岁</el-radio>
-            <el-radio :label="3">50岁以上</el-radio>
+            <el-radio :label="2">30-40岁</el-radio>
+            <el-radio :label="3">40-50岁</el-radio>
+            <el-radio :label="4">50-60岁</el-radio>
+            <el-radio :label="5">60岁以上</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="2. 您的投资经验">
-          <el-radio-group v-model="surveyForm.experience">
-            <el-radio :label="1">无经验</el-radio>
+
+        <el-form-item label="3. 您的风险承受能力">
+          <el-radio-group v-model="surveyForm.riskTolerance">
+            <el-radio :label="1">低</el-radio>
+            <el-radio :label="2">中</el-radio>
+            <el-radio :label="3">高</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="4. 您的总资产">
+          <el-radio-group v-model="surveyForm.totalAssets">
+            <el-radio :label="1">10万以下</el-radio>
+            <el-radio :label="2">10-20万</el-radio>
+            <el-radio :label="3">20-50万</el-radio>
+            <el-radio :label="4">50万以上</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="5. 您的投资经验">
+          <el-radio-group v-model="surveyForm.investmentExperience">
+            <el-radio :label="1">小于1年</el-radio>
             <el-radio :label="2">1-3年</el-radio>
-            <el-radio :label="3">3年以上</el-radio>
+            <el-radio :label="3">3-5年</el-radio>
+            <el-radio :label="4">5-10年</el-radio>
+            <el-radio :label="5">10年以上</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="3. 您的投资目标">
-          <el-radio-group v-model="surveyForm.target">
-            <el-radio :label="1">保值，不亏损</el-radio>
-            <el-radio :label="2">适度增长，可接受小幅波动</el-radio>
-            <el-radio :label="3">高收益，可接受较大波动</el-radio>
+
+        <el-form-item label="6. 您的主要收入来源">
+          <el-radio-group v-model="surveyForm.incomeSource">
+            <el-radio :label="1">企业经营</el-radio>
+            <el-radio :label="2">个体经营</el-radio>
+            <el-radio :label="3">工资收入</el-radio>
+            <el-radio :label="4">退休金</el-radio>
+            <el-radio :label="5">一次性收入</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="4. 您能承受的最大亏损">
-          <el-radio-group v-model="surveyForm.lossTolerance">
-            <el-radio :label="1">10%以内</el-radio>
-            <el-radio :label="2">10%-30%</el-radio>
-            <el-radio :label="3">30%以上</el-radio>
+
+        <el-form-item label="7. 您的投资目标">
+          <el-radio-group v-model="surveyForm.investmentTarget">
+            <el-radio :label="1">保值</el-radio>
+            <el-radio :label="2">增收</el-radio>
+            <el-radio :label="3">高收益</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
 
       <template #footer>
         <el-button @click="cancelCreate" v-if="currentStep === 1">取消</el-button>
-        <el-button @click="prevStep" v-if="currentStep === 2">上一步</el-button>
+        <el-button @click="prevStep" v-if="currentStep === 2 && !isEditQuestionnaire">上一步</el-button>
         <el-button type="primary" @click="nextStep">
           {{ currentStep === 1 ? '下一步' : '提交问卷' }}
         </el-button>
@@ -355,7 +389,12 @@ const basicFormRef = ref(null)
 const surveyFormRef = ref(null)
 const editFormRef = ref(null)
 
+// 问卷
+const isEditQuestionnaire = ref(false)
+const questionnaireClientId =ref(null)
+
 const basicForm = reactive({
+  id: null,
   type: 1,
   name: '',
   contactName: '',
@@ -377,10 +416,13 @@ const basicRules = {
 }
 
 const surveyForm = reactive({
-  age: null,
-  experience: null,
-  target: null,
-  lossTolerance: null
+    gender: null,          // 性别
+    age: null,             // 年龄
+    riskTolerance: null,   // 风险承受能力
+    totalAssets: null,     // 总资产
+    investmentExperience: null, // 投资经验
+    incomeSource: null,    // 收入来源
+    investmentTarget: null // 投资目标
 })
 
 // 用户详情
@@ -417,7 +459,7 @@ const certificateTypeLabel = (type) => {
 const fetchUsers = () => {
   searchForm.currentPage = pagination.currentPage
   searchForm.pageSize = pagination.pageSize
-  request.get("/user-management",{params:searchForm}).then((res) => {
+  request.get("/client/page",{params:searchForm}).then((res) => {
     console.log("res:",res)
     if (res.code === '200') {
       userList.value = res.data.list
@@ -431,6 +473,7 @@ const fetchUsers = () => {
 // 开户流程
 const showCreateDialog = () => {
   currentStep.value = 1
+  initBasicForm()
   createDialogVisible.value = true
 }
 
@@ -438,7 +481,7 @@ const showCreateDialog = () => {
 const nextStep = async () => {
   if (currentStep.value === 1) {
     console.log("basicForm:",basicForm)
-    request.post("/user-management",basicForm).then(res=>{
+    request.post("/client",basicForm).then(res=>{
       if (res.code === '200') {
         ElMessage.success(res.msg||"添加客户成功")
         currentStep.value++
@@ -448,16 +491,38 @@ const nextStep = async () => {
     })
   } else {
     console.log("surveyForm:",surveyForm)
-    request.post("/user-management/questionnaire",surveyForm).then(res=>{
-      if (res.code === '200') {
-        ElMessage.success(res.msg||"问卷提交成功，客户已激活")
-        createDialogVisible.value = false
-        fetchUsers()
-      } else {
-        ElMessage.error(res.msg||"问卷提交失败")
-      }
-    })
+    initSurveyForm()
+    if (questionnaireClientId.value){
+      request.post("/client/questionnaire/edit",surveyForm,{params:{clientId:questionnaireClientId}}).then(res=>{
+        if (res.code === '200') {
+          ElMessage.success(res.msg||"问卷提交成功")
+          createDialogVisible.value = false
+          isEditQuestionnaire.value = false
+          fetchUsers()
+        } else {
+          ElMessage.error(res.msg||"问卷提交失败")
+        }
+      })
+    }else {
+      request.post("/client/questionnaire",surveyForm).then(res=>{
+        if (res.code === '200') {
+          ElMessage.success(res.msg||"问卷提交成功")
+          isEditQuestionnaire.value = false
+          fetchUsers()
+        } else {
+          ElMessage.error(res.msg||"问卷提交失败")
+        }
+      })
+    }
   }
+}
+
+//填写问卷
+const editQuestionnaire = (row) => {
+  currentStep.value = 2
+  isEditQuestionnaire.value = true
+  createDialogVisible.value = true
+  questionnaireClientId.value = row.id
 }
 
 const prevStep = () => {
@@ -471,6 +536,7 @@ const cancelCreate = () => {
 
 const initBasicForm = () => {
   Object.assign(basicForm, {
+    id: null,
     type: 1,
     name: '',
     contactName: '',
@@ -479,6 +545,18 @@ const initBasicForm = () => {
     contactNumber: '',
     mail: '',
     address: ''
+  })
+}
+
+const initSurveyForm = () => {
+  Object.assign(surveyForm, {
+    gender: null,
+    age: null,
+    riskTolerance: null,
+    totalAssets: null,
+    investmentExperience: null,
+    incomeSource: null,
+    investmentTarget: null
   })
 }
 
@@ -497,7 +575,7 @@ const handleCreateClose = (done) => {
 const editUser = (row) => {
   currentUser.value = { ...row }
   // 加载银行卡信息
-  request.get("/user-management/bankCard",row.id).then(res=>{
+  request.get("/bankCard/list",row.id).then(res=>{
     if (res.code === '200') {
       bankCards.value = res.data
     }
@@ -508,6 +586,7 @@ const editUser = (row) => {
 
   // 填充表单
   Object.assign(basicForm, {
+    id: row.id,
     type: row.type,
     name: row.name,
     contactName: row.contactName,
@@ -524,7 +603,7 @@ const editUser = (row) => {
 
 // 保存修改
 const submitEdit = () => {
-  request.post("/user-management",basicForm).then((res) => {
+  request.post("/client",basicForm).then((res) => {
     if (res.code === '200') {
       ElMessage.success("操作成功")
       detailDialogVisible.value = false;
@@ -539,7 +618,7 @@ const submitEdit = () => {
 
 // 删除用户
 const delClient = (id) => {
-  request.delete("/user-management/"+id).then((res) => {
+  request.delete("/client/"+id).then((res) => {
     console.log("deleteUserRes",res)
     if (res.code === "200") {
       ElMessage.success("删除成功")
@@ -562,7 +641,7 @@ const showAddBankCard = () => {
 // 添加银行卡
 const submitBankCard = async () => {
   console.log("bankCardForm:",bankCardForm)
-  request.post("/user-management/bankCard",bankCardForm).then(res=>{
+  request.post("/bankCard",bankCardForm).then(res=>{
     if (res.code === '200') {
       ElMessage.success("添加成功")
       bankCardDialogVisible.value = false
@@ -575,7 +654,7 @@ const submitBankCard = async () => {
 // 删除银行卡
 const deleteCard = (cardId) => {
   console.log("cardId:",cardId)
-  request.delete("/user-management/bankCard/"+cardId).then(res=>{
+  request.delete("/bankCard/"+cardId).then(res=>{
     if (res.code === '200') {
       ElMessage.success("删除成功")
     }else {

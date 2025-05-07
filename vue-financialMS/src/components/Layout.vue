@@ -105,6 +105,7 @@ const handleMenuSelect = (index) => {
 
 // 退出登录
 const logout = () => {
+  localStorage.removeItem("user")
   ElMessage.success("退出成功")
   router.push('/login');
 };

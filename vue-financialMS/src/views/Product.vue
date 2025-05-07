@@ -192,13 +192,13 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态" prop="status">
+        <el-form-item label="状态" prop="status" v-if="isEdit">
           <el-radio-group v-model="productForm.status">
             <el-radio :label="1">可交易</el-radio>
             <el-radio :label="0">停止交易</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="最新净值" prop="latestWorth">
+        <el-form-item label="最新净值" prop="latestWorth" v-if="isEdit">
           <el-input-number
               v-model="productForm.latestWorth"
               :min="0"
@@ -322,6 +322,7 @@ const editDialogVisible = ref(false)
 const isEdit = ref(false)
 const productFormRef = ref(null)
 const productForm = reactive({
+  id: '',
   code: '',
   name: '',
   type: null,
@@ -352,6 +353,7 @@ const fetchProducts = ()=> {
   searchForm.pageSize = pagination.pageSize
   searchForm.currentPage = pagination.currentPage
   request.get("/product/page",{params:searchForm}).then((res) => {
+    console.log("res数据:",res)
     if (res.code === '200') {
       productList.value = res.data.list
       pagination.total = res.data.total
@@ -539,6 +541,7 @@ const editProduct = async (id) => {
   isEdit.value = true
   const product = productList.value.find(item => item.id === id)
   Object.assign(productForm,{
+    id: id,
     code: product.id,
     name: product.name,
     type: product.type,
