@@ -492,7 +492,7 @@ const nextStep = async () => {
   } else {
     console.log("surveyForm:",surveyForm)
     initSurveyForm()
-    if (questionnaireClientId.value){
+    if (questionnaireClientId.value !== null){
       request.post("/client/questionnaire/edit",surveyForm,{params:{clientId:questionnaireClientId}}).then(res=>{
         if (res.code === '200') {
           ElMessage.success(res.msg||"问卷提交成功")

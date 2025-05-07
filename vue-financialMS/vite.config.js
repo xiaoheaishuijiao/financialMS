@@ -20,7 +20,7 @@ export default defineConfig({
       '/api': {
         target: 'http://192.168.43.58:8084', // Mock 服务地址
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '') // 移除/api前缀
+        // rewrite: (path) => path.replace(/^\/api/, '') // 移除/api前缀
       }
     }
   }

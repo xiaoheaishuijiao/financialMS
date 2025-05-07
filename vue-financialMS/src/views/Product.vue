@@ -572,7 +572,9 @@ const delProduct = (id) => {
 
 // 新增产品
 const submitProduct = () => {
+  console.log(productForm)
   request.post("/product",productForm).then((res) => {
+    console.log("新增产品的res",res)
     if (res.code === '200') {
       ElMessage.success("操作成功")
       editDialogVisible.value = false;
